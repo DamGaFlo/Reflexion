@@ -32,7 +32,7 @@ public class HttpServer {
     public void start(String[] args) throws IOException, URISyntaxException {
         ServerSocket serverSocket = null;
         try {
-            serverSocket = new ServerSocket(35000);
+            serverSocket = new ServerSocket(getPort());
 
         } catch (IOException e) {
             System.err.println("Could not listen on port: 35000.");
@@ -53,9 +53,15 @@ public class HttpServer {
         }
         serverSocket.close();
     }
+    static int getPort(){
+        if(System.getenv("PORT")!=null){
+            return Integer.parseInt(System.getenv("PORT"));
+        }
+        return 4567;
+    }
 
     public void serverConnection(Socket clientSocket) throws IOException, URISyntaxException {
-        PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+        OutputStream out = clientSocket.getOutputStream();
         BufferedReader in = new BufferedReader(
                 new InputStreamReader(
                         clientSocket.getInputStream()));
@@ -69,77 +75,82 @@ public class HttpServer {
                 break;
             }
         }
-        String uriStr = request.get(0).split(" ")[1];
-        URI resourceURI = new URI(uriStr);
-        outputLine = getResource(resourceURI);
-        out.println(outputLine);
+        if(!request.isEmpty()){
+            String uriStr = request.get(0).split(" ")[1];
+            URI resourceURI = new URI(uriStr);
+            buildResource(resourceURI,out);
+            
+        }
+        
 
         out.close();
         in.close();
     }
 
-    public String getResource(URI resourceURI) {
+    public void buildResource(URI resourceURI,OutputStream out) throws IOException {
+        
+        PrintWriter outPrintWriter = new PrintWriter(out,true);
+        
         String path = resourceURI.getPath();
+        if(!path.equals("/img/gato.jpg")){
+            path="/index.html";
+        }
         String query = resourceURI.getQuery();
         System.out.println("hola   " + path);
         System.out.println(query);
-        return defaultHtml();
-
-    }
-
-    private String defaultHtml() {
-        String outputLine = "HTTP/1.1 200 OK\r\n"
-                + "Content-Type: text/html\r\n"
-                + "\r\n"
-                + "<!DOCTYPE html>"
-                + "<html>"
-                + "<head>"
-                + "<meta charset=\"UTF-8\">"
-                + "<title>Title of the document</title>\n"
-                + "</head>"
-                + "<body>"
-                + "My Web Siteeeee"
-                + "</body>"
-                + "</html>";
-        return outputLine;
-    }
-
-    private String getCity() {
-        String city = "london";
-
-        HttpClimaService climaService = CurrentServiceInstance.getInstance().getService();
-
-        climaService.setClima(city);
-
-        String response = "None";
-        try {
-            response = climaService.TimeSeries();
-        } catch (IOException e) {
-            Logger.getLogger(Cliente.class.getName()).log(Level.SEVERE, null, e);
+        byte byteFlow[] = getResourse(path);
+        String header = getHeader(path);
+        if(byteFlow != null){
+            
+            outPrintWriter.println(header);
+            out.write(byteFlow);
         }
-        System.out.println(response);
-
+        outPrintWriter.close();
+        out.close();
+    }
+    
+    private byte[] getResourse(String path) throws FileNotFoundException, IOException{
+        String localPath = "src/main/resources/public_html"+path;
+        File resource = new  File(localPath);
+        System.out.println(resource.exists());
+        byte byteFlow[] = new byte[(int)resource.length()];
+        if(resource.exists() && resource.isFile()){
+            System.out.println(localPath+" este es el path");
+            FileInputStream fileStream = new FileInputStream(resource);
+            fileStream.read(byteFlow);
+            fileStream.close();
+        }else{
+            byteFlow = null;
+        }
+        return byteFlow;
+    }
+    
+      private String getHeader(String path) {
+        String header ="HTTP/1.1 404 Not Found\r\n Content-Type: text/txt";
+        if(path.equals("/") || path.equals("/index.html")){
+            
+            header = "HTTP/1.1 200 OK\r\n Content-Type: text/html\r\n";
+        }else if(path.equals("/img/gato.jpg")){
+            System.out.println("oyemeeeeeeeeeeeeeeeeeeee\n\n\n\n");
+            header = "HTTP/1.1 200 OK\r\n Content-Type: image/jpg\r\n";
+        }
+        return header;
     }
 
 
-private String formatCity(String city) {
-        String outputLine = "HTTP/1.1 200 OK\r\n"
-                +"Content-Type: text/html\r\n"
-                +"\r\n"
-                +"<!DOCTYPE html>"
-                + "<html>"
-                + "<head>"
-                + "<meta charset=\"UTF-8\">"
-                + "<title>Title of the document</title>\n"
-                + "</head>"
-                + "<body>"
-                + "My Web Siteeeee"
-                + "</body>"
-                + "</html>";
-        return outputLine;
-    }
+
+
 
     public static void main(String args[]) throws IOException, URISyntaxException {
         HttpServer.getInstance().start(args);
     }
 }
+
+  
+
+//        . .
+//       {Ô,Ô} 
+//       /)_)
+//        ""
+// =======================
+//  
